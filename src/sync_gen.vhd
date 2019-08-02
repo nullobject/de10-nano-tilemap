@@ -44,7 +44,7 @@ entity sync_gen is
     clk : in std_logic;
 
     -- clock enable
-    cen : in std_logic;
+    cen : in std_logic := '1';
 
     -- horizontal and vertical position
     pos : out pos_t;
