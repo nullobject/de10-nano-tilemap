@@ -29,7 +29,7 @@ architecture arch of tilemap is
   signal ram_dout : byte_t;
 
   -- ROM signals
-  signal tile_rom_addr : std_logic_vector(14 downto 0);
+  signal tile_rom_addr : std_logic_vector(16 downto 0);
   signal tile_rom_dout : byte_t;
 
   -- The register that contains the colour and code of the next tile to be
@@ -53,11 +53,13 @@ architecture arch of tilemap is
   signal pixel : nibble_t;
   signal pixel_2 : nibble_t;
 
+  signal pos_x : unsigned(2 downto 0);
+
   -- extract the components of the video position vectors
-  alias col      : unsigned(4 downto 0) is video_pos.x(7 downto 3);
-  alias row      : unsigned(4 downto 0) is video_pos.y(7 downto 3);
-  alias offset_x : unsigned(2 downto 0) is video_pos.x(2 downto 0);
-  alias offset_y : unsigned(2 downto 0) is video_pos.y(2 downto 0);
+  alias col      : unsigned(4 downto 0) is video_pos.x(8 downto 4);
+  alias row      : unsigned(3 downto 0) is video_pos.y(7 downto 4);
+  alias offset_x : unsigned(3 downto 0) is video_pos.x(3 downto 0);
+  alias offset_y : unsigned(3 downto 0) is video_pos.y(3 downto 0);
 begin
   my_pll : entity pll.pll
   port map (
@@ -95,8 +97,8 @@ begin
 
   rom : entity work.single_port_rom
   generic map (
-    ADDR_WIDTH => 15,
-    INIT_FILE  => "rom/cpu_8k.mif"
+    ADDR_WIDTH => 17,
+    INIT_FILE  => "rom/fg.mif"
   )
   port map (
     clk  => clk_12,
@@ -109,26 +111,26 @@ begin
   begin
     if rising_edge(clk_12) then
       case to_integer(offset_x) is
-        when 2 =>
-          -- load high byte from the char RAM
+        when 10 =>
+          -- load high byte from the scroll RAM
           ram_addr <= std_logic_vector('1' & col);
 
-        when 3 =>
+        when 11 =>
           -- latch high byte
           tile_data(15 downto 8) <= ram_dout;
 
-          -- load low byte from the char RAM
+          -- load low byte from the scroll RAM
           ram_addr <= std_logic_vector('0' & col);
 
-        when 4 =>
+        when 12 =>
           -- latch low byte
           tile_data(7 downto 0) <= ram_dout;
 
-        when 5 =>
+        when 13 =>
           -- latch code
           code <= unsigned(tile_data(9 downto 0));
 
-        when 7 =>
+        when 15 =>
           -- latch colour
           color <= tile_data(15 downto 12);
 
@@ -137,14 +139,16 @@ begin
     end if;
   end process;
 
+  pos_x <= offset_x(3 downto 1)+1;
+
   -- load graphics data from the tile ROM
-  tile_rom_addr <= std_logic_vector(code & offset_y & (offset_x(2 downto 1)+1));
+  tile_rom_addr <= std_logic_vector(code & video_pos.y(3) & pos_x(2) & video_pos.y(2 downto 0) & pos_x(1 downto 0));
 
   -- latch graphics data when rendering odd pixels
   latch_gfx_data : process (clk_12)
   begin
     if rising_edge(clk_12) then
-      if video_pos.x(0) = '1' then
+      if cen_6 = '1' and video_pos.x(0) = '1' then
         gfx_data <= tile_rom_dout;
       end if;
     end if;
