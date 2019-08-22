@@ -40,24 +40,16 @@ use work.types.all;
 -- vertical frequency: 15.625kHz / 264 = 59.185 Hz
 entity sync_gen is
   port (
-    -- input clock
-    clk : in std_logic;
+    -- clock signals
+    clk   : in std_logic;
+    cen_6 : in std_logic;
 
-    -- clock enable
-    cen : in std_logic := '1';
-
-    -- horizontal and vertical position
-    pos : out pos_t;
-
-    -- horizontal and vertical sync
-    sync : out sync_t;
-
-    -- horizontal and vertical blank
-    blank : out blank_t
+    -- video signals
+    video : out video_t
   );
 end sync_gen;
 
-architecture struct of sync_gen is
+architecture arch of sync_gen is
   -- horizontal regions
   constant H_DISPLAY     : natural := 256;
   constant H_FRONT_PORCH : natural := 48;
@@ -72,74 +64,82 @@ architecture struct of sync_gen is
   constant V_BACK_PORCH  : natural := 16;
   constant V_SCAN        : natural := V_DISPLAY+V_FRONT_PORCH+V_RETRACE+V_BACK_PORCH; -- 264
 
-  -- The horizontal position is offset by 8, because the graphics data for the
-  -- first 8x8 tile in the scanline needs to be preloaded. i.e. When rendering
-  -- the current tile, we want to fetch the graphics data for the next tile
-  -- ahead.
-  constant H_OFFSET : natural := 8;
-
-  -- horizontal/vertical counter starting values
+  -- initial counter values
   constant H_START : natural := 128;
   constant V_START : natural := 248;
 
-  -- horizontal/vertical counters
+  -- position counters
   signal x : natural range 0 to 511 := H_START;
   signal y : natural range 0 to 511 := V_START;
+
+  -- sync signals
+  signal hsync, vsync : std_logic;
+
+  -- blank signals
+  signal hblank, vblank : std_logic;
 begin
-  -- generate horizontal timings
+  -- generate horizontal timing signals
   horizontal_timing : process (clk)
   begin
-    if rising_edge(clk) then
-      if cen = '1' then
-        if x = 511 then
-          x <= H_START;
-        else
-          x <= x + 1;
-        end if;
+    if rising_edge(clk) and cen_6 = '1' then
+      if x = 511 then
+        x <= H_START;
+      else
+        x <= x + 1;
+      end if;
 
-        if x = H_START+H_FRONT_PORCH+H_RETRACE-1 then
-          sync.hsync <= '0';
-        elsif x = H_START+H_FRONT_PORCH-1 then
-          sync.hsync <= '1';
-        end if;
+      if x = H_START+H_FRONT_PORCH+H_RETRACE-1 then
+        hsync <= '0';
+      elsif x = H_START+H_FRONT_PORCH-1 then
+        hsync <= '1';
+      end if;
 
-        if x = H_START+H_FRONT_PORCH+H_RETRACE+H_BACK_PORCH-1 then
-          blank.hblank <= '0';
-        elsif x = H_START+H_SCAN-1 then
-          blank.hblank <= '1';
-        end if;
+      if x = H_START+H_FRONT_PORCH+H_RETRACE+H_BACK_PORCH-1 then
+        hblank <= '0';
+      elsif x = H_START+H_SCAN-1 then
+        hblank <= '1';
       end if;
     end if;
   end process;
 
-  -- generate vertical timings
+  -- generate vertical timing signals
   vertical_timing : process (clk)
   begin
-    if rising_edge(clk) then
-      if cen = '1' then
-        if x = H_START+H_FRONT_PORCH-1 then
-          if y = 511 then
-            y <= V_START;
-          else
-            y <= y + 1;
-          end if;
+    if rising_edge(clk) and cen_6 = '1' then
+      if x = H_START+H_FRONT_PORCH-1 then
+        if y = 511 then
+          y <= V_START;
+        else
+          y <= y + 1;
+        end if;
 
-          if y = V_START+V_RETRACE-1 then
-            sync.vsync <= '0';
-          elsif y = V_START+V_SCAN-1 then
-            sync.vsync <= '1';
-          end if;
+        if y = V_START+V_RETRACE-1 then
+          vsync <= '0';
+        elsif y = V_START+V_SCAN-1 then
+          vsync <= '1';
+        end if;
 
-          if y = V_START+V_RETRACE+V_BACK_PORCH-1 then
-            blank.vblank <= '0';
-          elsif y = V_START+V_RETRACE+V_BACK_PORCH+V_DISPLAY-1 then
-            blank.vblank <= '1';
-          end if;
+        if y = V_START+V_RETRACE+V_BACK_PORCH-1 then
+          vblank <= '0';
+        elsif y = V_START+V_RETRACE+V_BACK_PORCH+V_DISPLAY-1 then
+          vblank <= '1';
         end if;
       end if;
     end if;
   end process;
 
-  pos.x <= to_unsigned(x+H_OFFSET, pos.x'length);
-  pos.y <= to_unsigned(y, pos.y'length);
-end architecture;
+  -- set video position
+  video.pos.x <= to_unsigned(x, video.pos.x'length);
+  video.pos.y <= to_unsigned(y, video.pos.y'length);
+
+  -- set sync signals
+  video.hsync <= hsync;
+  video.vsync <= vsync;
+
+  -- set blank signals
+  video.hblank <= hblank;
+  video.vblank <= vblank;
+
+  -- set output enable
+  video.enable <= not (hblank or vblank);
+end architecture arch;

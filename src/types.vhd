@@ -23,24 +23,32 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 package types is
-  -- represents a 2D position
+  constant TILE_ROM_ADDR_WIDTH : natural := 17;
+  constant TILE_RAM_ADDR_WIDTH : natural := 6;
+
+  subtype byte_t is std_logic_vector(7 downto 0);
+  subtype nibble_t is std_logic_vector(3 downto 0);
+
+  -- represents a position
   type pos_t is record
     x : unsigned(8 downto 0);
     y : unsigned(8 downto 0);
   end record pos_t;
 
-  -- represents the horizontal and vertical sync signals
-  type sync_t is record
+  -- represents the video signals
+  type video_t is record
+    -- position
+    pos : pos_t;
+
+    -- sync signals
     hsync : std_logic;
     vsync : std_logic;
-  end record sync_t;
 
-  -- represents the horizontal and vertical blank signals
-  type blank_t is record
+    -- blank signals
     hblank : std_logic;
     vblank : std_logic;
-  end record blank_t;
 
-  subtype byte_t is std_logic_vector(7 downto 0);
-  subtype nibble_t is std_logic_vector(3 downto 0);
+    -- enable video output
+    enable : std_logic;
+  end record video_t;
 end package types;
