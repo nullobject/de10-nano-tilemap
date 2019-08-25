@@ -46,7 +46,7 @@ architecture arch of top is
   signal video : video_t;
 
   -- tilemap data
-  signal tilemap_data : byte_t := (others => '0');
+  signal tilemap_data : byte_t;
 
   -- pixel data
   signal pixel : nibble_t;
@@ -84,15 +84,17 @@ begin
   -- latch pixel data from the palette RAM
   latch_pixel_data : process (clk_12)
   begin
-    if rising_edge(clk_12) and cen_6 = '1' then
-      if video.enable = '1' then
-        vga_r <= pixel & pixel(3 downto 2);
-        vga_g <= pixel & pixel(3 downto 2);
-        vga_b <= pixel & pixel(3 downto 2);
-      else
-        vga_r <= (others => '0');
-        vga_g <= (others => '0');
-        vga_b <= (others => '0');
+    if rising_edge(clk_12) then
+        if cen_6 = '1' then
+        if video.enable = '1' then
+          vga_r <= pixel & pixel(3 downto 2);
+          vga_g <= pixel & pixel(3 downto 2);
+          vga_b <= pixel & pixel(3 downto 2);
+        else
+          vga_r <= (others => '0');
+          vga_g <= (others => '0');
+          vga_b <= (others => '0');
+        end if;
       end if;
     end if;
   end process;
