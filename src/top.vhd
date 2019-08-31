@@ -39,8 +39,8 @@ end top;
 
 architecture arch of top is
   -- clock signals
-  signal clk_12 : std_logic;
-  signal cen_6  : std_logic;
+  signal sys_clk : std_logic;
+  signal cen_6   : std_logic;
 
   -- video signals
   signal video : video_t;
@@ -56,19 +56,20 @@ begin
   port map (
     refclk   => clk,
     rst      => '0',
-    outclk_0 => clk_12,
+    outclk_0 => sys_clk,
+    outclk_1 => open,
     locked   => open
   );
 
   -- generate a 6MHz clock enable signal
   clock_divider_6 : entity work.clock_divider
-  generic map (DIVISOR => 2)
-  port map (clk => clk_12, cen => cen_6);
+  generic map (DIVISOR => 8)
+  port map (clk => sys_clk, cen => cen_6);
 
   -- video timing generator
   sync_gen : entity work.sync_gen
   port map (
-    clk   => clk_12,
+    clk   => sys_clk,
     cen_6 => cen_6,
     video => video
   );
@@ -76,15 +77,15 @@ begin
   -- tilemap layer
   tilemap_layer : entity work.tilemap
   port map (
-    clk   => clk_12,
+    clk   => sys_clk,
     video => video,
     data  => tilemap_data
   );
 
   -- latch pixel data from the palette RAM
-  latch_pixel_data : process (clk_12)
+  latch_pixel_data : process (sys_clk)
   begin
-    if rising_edge(clk_12) then
+    if rising_edge(sys_clk) then
         if cen_6 = '1' then
         if video.enable = '1' then
           vga_r <= pixel & pixel(3 downto 2);
